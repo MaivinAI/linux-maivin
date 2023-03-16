@@ -97,6 +97,20 @@ static const struct imx_pll14xx_rate_table *imx_get_pll_settings(
 	return NULL;
 }
 
+static long pll14xx_calc_rate(struct clk_pll14xx *pll, int mdiv, int pdiv,
+			      int sdiv, int kdiv, unsigned long prate)
+{
+	u64 fvco = prate;
+
+	/* fvco = (m * 65536 + k) * Fin / (p * 65536) */
+	fvco *= (mdiv * 65536 + kdiv);
+	pdiv *= 65536;
+
+	do_div(fvco, pdiv << sdiv);
+
+	return fvco;
+}
+
 static long clk_pll14xx_round_rate(struct clk_hw *hw, unsigned long rate,
 			unsigned long *prate)
 {
@@ -113,61 +127,25 @@ static long clk_pll14xx_round_rate(struct clk_hw *hw, unsigned long rate,
 	return rate_table[i - 1].rate;
 }
 
-static unsigned long clk_pll1416x_recalc_rate(struct clk_hw *hw,
+static unsigned long clk_pll14xx_recalc_rate(struct clk_hw *hw,
 						  unsigned long parent_rate)
 {
 	struct clk_pll14xx *pll = to_clk_pll14xx(hw);
-	u32 mdiv, pdiv, sdiv, pll_div;
-	u64 fvco = parent_rate;
-
-	pll_div = readl_relaxed(pll->base + DIV_CTL0);
-	mdiv = FIELD_GET(MDIV_MASK, pll_div);
-	pdiv = FIELD_GET(PDIV_MASK, pll_div);
-	sdiv = FIELD_GET(SDIV_MASK, pll_div);
-
-	fvco *= mdiv;
-	do_div(fvco, pdiv << sdiv);
-
-	return fvco;
-}
-
-static unsigned long clk_pll1443x_recalc_rate(struct clk_hw *hw,
-						  unsigned long parent_rate)
-{
-	struct clk_pll14xx *pll = to_clk_pll14xx(hw);
-	const struct imx_pll14xx_rate_table *rate_table = pll->rate_table;
-	u32 mdiv, pdiv, sdiv, pll_div_ctl0, pll_div_ctl1;
-	short int kdiv;
-	u64 fvco = parent_rate;
-	long rate = 0;
-	int i;
+	u32 mdiv, pdiv, sdiv, kdiv, pll_div_ctl0, pll_div_ctl1;
 
 	pll_div_ctl0 = readl_relaxed(pll->base + DIV_CTL0);
-	pll_div_ctl1 = readl_relaxed(pll->base + DIV_CTL1);
 	mdiv = FIELD_GET(MDIV_MASK, pll_div_ctl0);
 	pdiv = FIELD_GET(PDIV_MASK, pll_div_ctl0);
 	sdiv = FIELD_GET(SDIV_MASK, pll_div_ctl0);
-	kdiv = FIELD_GET(KDIV_MASK, pll_div_ctl1);
 
-	/*
-	 * Sometimes, the recalculated rate has deviation due to
-	 * the frac part. So find the accurate pll rate from the table
-	 * first, if no match rate in the table, use the rate calculated
-	 * from the equation below.
-	 */
-	for (i = 0; i < pll->rate_count; i++) {
-		if (rate_table[i].pdiv == pdiv && rate_table[i].mdiv == mdiv &&
-		    rate_table[i].sdiv == sdiv && rate_table[i].kdiv == kdiv)
-			rate = rate_table[i].rate;
+	if (pll->type == PLL_1443X) {
+		pll_div_ctl1 = readl_relaxed(pll->base + DIV_CTL1);
+		kdiv = FIELD_GET(KDIV_MASK, pll_div_ctl1);
+	} else {
+		kdiv = 0;
 	}
 
-	/* fvco = (m * 65536 + k) * Fin / (p * 65536) */
-	fvco *= (mdiv * 65536 + kdiv);
-	pdiv *= 65536;
-
-	do_div(fvco, pdiv << sdiv);
-
-	return rate ? (unsigned long) rate : (unsigned long)fvco;
+	return pll14xx_calc_rate(pll, mdiv, pdiv, sdiv, kdiv, parent_rate);
 }
 
 static inline bool clk_pll14xx_mp_change(const struct imx_pll14xx_rate_table *rate,
@@ -377,12 +355,10 @@ static void clk_pll14xx_unprepare(struct clk_hw *hw)
 void clk_set_delta_k(struct clk_hw *hw, short int delta_k)
 {
 	struct clk_pll14xx *pll = to_clk_pll14xx(hw);
-	short int k;
 	u32 val;
 
-	val = readl_relaxed(pll->base + 8);
-	k = (val & KDIV_MASK) + delta_k;
-	writel_relaxed(k << KDIV_SHIFT, pll->base + 8);
+	val = readl_relaxed(pll->base + DIV_CTL1);
+	writel_relaxed(FIELD_PREP(KDIV_MASK, val + delta_k), pll->base + DIV_CTL1);
 }
 
 void clk_get_pll_setting(struct clk_hw *hw, u32 *pll_div_ctrl0,
@@ -398,20 +374,20 @@ static const struct clk_ops clk_pll1416x_ops = {
 	.prepare	= clk_pll14xx_prepare,
 	.unprepare	= clk_pll14xx_unprepare,
 	.is_prepared	= clk_pll14xx_is_prepared,
-	.recalc_rate	= clk_pll1416x_recalc_rate,
+	.recalc_rate	= clk_pll14xx_recalc_rate,
 	.round_rate	= clk_pll14xx_round_rate,
 	.set_rate	= clk_pll1416x_set_rate,
 };
 
 static const struct clk_ops clk_pll1416x_min_ops = {
-	.recalc_rate	= clk_pll1416x_recalc_rate,
+	.recalc_rate	= clk_pll14xx_recalc_rate,
 };
 
 static const struct clk_ops clk_pll1443x_ops = {
 	.prepare	= clk_pll14xx_prepare,
 	.unprepare	= clk_pll14xx_unprepare,
 	.is_prepared	= clk_pll14xx_is_prepared,
-	.recalc_rate	= clk_pll1443x_recalc_rate,
+	.recalc_rate	= clk_pll14xx_recalc_rate,
 	.round_rate	= clk_pll14xx_round_rate,
 	.set_rate	= clk_pll1443x_set_rate,
 };
