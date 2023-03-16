@@ -168,10 +168,7 @@ imx8mp_ldb_encoder_atomic_check(struct drm_encoder *encoder,
 	struct imx8mp_ldb_channel *imx8mp_ldb_ch =
 						enc_to_imx8mp_ldb_ch(encoder);
 	struct ldb_channel *ldb_ch = &imx8mp_ldb_ch->base;
-	struct imx8mp_ldb *imx8mp_ldb = imx8mp_ldb_ch->imx8mp_ldb;
-	struct ldb *ldb = &imx8mp_ldb->base;
 	struct drm_display_info *di = &conn_state->connector->display_info;
-	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	u32 bus_format = ldb_ch->bus_format;
 
 	/* Bus format description in DT overrides connector display info. */
@@ -194,15 +191,6 @@ imx8mp_ldb_encoder_atomic_check(struct drm_encoder *encoder,
 		return -EINVAL;
 	}
 
-	/*
-	 * Due to limited video PLL frequency points on i.MX8mp,
-	 * we do mode fixup here in case any mode is unsupported.
-	 */
-	if (ldb->dual)
-		mode->clock = mode->clock > 100000 ? 148500 : 74250;
-	else
-		mode->clock = 74250;
-
 	return 0;
 }
 
@@ -221,13 +209,22 @@ imx8mp_ldb_encoder_mode_valid(struct drm_encoder *encoder,
 		return MODE_OK;
 
 	/*
-	 * Due to limited video PLL frequency points on i.MX8mp,
-	 * we do mode valid check here.
+	 * According to the iMX8MP Reference manual, the LDB peripheral supports:
+	 * - Single channel (4 lanes) output at up to 80MHz pixel clock and LVDS clock.
+	 *   This supports resolutions up to 1366x768p60.
+	 * - Dual asynchronous channels (8 data, 2 clocks). This is intended for a single
+	 *   panel with two interfaces, transferring across two channels (even pixel/odd
+	 *   pixel). This is supported at up to 160MHz pixel clock, which is up to 80MHz
+	 *   LVDS clock (due to 2 pixels per LVDS clock). This supports resolutions
+	 *   above 1366x768p60, up to 1080p60.
+	 *
+	 * Check if the clock that's set in the mode is not outside the maximum range.
+	 * The manual doesn't state a minimum pixel clock, so it's not checked here.
 	 */
-	if (ldb->dual && mode->clock != 74250 && mode->clock != 148500)
+	if (ldb->dual && mode->clock > 160000)
 		return MODE_NOCLOCK;
 
-	if (!ldb->dual && mode->clock != 74250)
+	if (!ldb->dual && mode->clock > 80000)
 		return MODE_NOCLOCK;
 
 	return MODE_OK;
