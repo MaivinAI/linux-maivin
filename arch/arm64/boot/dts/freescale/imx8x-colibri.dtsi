@@ -327,18 +327,6 @@
 				  "USB_BYPASS_N",
 				  "Wi-Fi_PDn",
 				  "Wi-Fi_WKUP_BT";
-
-		pcie-clk-on-hog {
-			gpio-hog;
-			gpios = <3 GPIO_ACTIVE_HIGH>;
-			output-high;
-		};
-
-		wifi-power-on-hog {
-			gpio-hog;
-			gpios = <6 GPIO_ACTIVE_HIGH>;
-			output-high;
-		};
 	};
 };
 
@@ -722,17 +710,7 @@
 	pwr-delay = <10>;
 };
 
-/* On-module PCIe for Wi-Fi */
-&pcieb{
-	compatible = "fsl,imx8qxp-pcie", "snps,dw-pcie";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pcieb &pinctrl_wifi>;
-	ext_osc = <1>;
-	fsl,max-link-speed = <1>;
-	hard-wired = <1>;
-	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
-	status = "okay";
-};
+/* TODO on-module PCIe for Wi-Fi */
 
 /* On-module I2S */
 &sai0 {
