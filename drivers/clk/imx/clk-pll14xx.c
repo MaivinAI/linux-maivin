@@ -15,8 +15,7 @@
 #include "clk.h"
 
 #define GNRL_CTL	0x0
-#define DIV_CTL0	0x4
-#define DIV_CTL1	0x8
+#define DIV_CTL		0x4
 #define LOCK_STATUS	BIT(31)
 #define LOCK_SEL_MASK	BIT(29)
 #define CLKE_MASK	BIT(11)
@@ -123,7 +122,7 @@ static unsigned long clk_pll1416x_recalc_rate(struct clk_hw *hw,
 	u32 mdiv, pdiv, sdiv, pll_div;
 	u64 fvco = parent_rate;
 
-	pll_div = readl_relaxed(pll->base + DIV_CTL0);
+	pll_div = readl_relaxed(pll->base + 4);
 	mdiv = (pll_div & MDIV_MASK) >> MDIV_SHIFT;
 	pdiv = (pll_div & PDIV_MASK) >> PDIV_SHIFT;
 	sdiv = (pll_div & SDIV_MASK) >> SDIV_SHIFT;
@@ -145,8 +144,8 @@ static unsigned long clk_pll1443x_recalc_rate(struct clk_hw *hw,
 	long rate = 0;
 	int i;
 
-	pll_div_ctl0 = readl_relaxed(pll->base + DIV_CTL0);
-	pll_div_ctl1 = readl_relaxed(pll->base + DIV_CTL1);
+	pll_div_ctl0 = readl_relaxed(pll->base + 4);
+	pll_div_ctl1 = readl_relaxed(pll->base + 8);
 	mdiv = (pll_div_ctl0 & MDIV_MASK) >> MDIV_SHIFT;
 	pdiv = (pll_div_ctl0 & PDIV_MASK) >> PDIV_SHIFT;
 	sdiv = (pll_div_ctl0 & SDIV_MASK) >> SDIV_SHIFT;
@@ -188,7 +187,7 @@ static int clk_pll14xx_wait_lock(struct clk_pll14xx *pll)
 {
 	u32 val;
 
-	return readl_poll_timeout(pll->base + GNRL_CTL, val, val & LOCK_STATUS, 0,
+	return readl_poll_timeout(pll->base, val, val & LOCK_STATUS, 0,
 			LOCK_TIMEOUT_US);
 }
 
@@ -207,32 +206,32 @@ static int clk_pll1416x_set_rate(struct clk_hw *hw, unsigned long drate,
 		return -EINVAL;
 	}
 
-	tmp = readl_relaxed(pll->base + DIV_CTL0);
+	tmp = readl_relaxed(pll->base + 4);
 
 	if (!clk_pll14xx_mp_change(rate, tmp)) {
 		tmp &= ~(SDIV_MASK) << SDIV_SHIFT;
 		tmp |= rate->sdiv << SDIV_SHIFT;
-		writel_relaxed(tmp, pll->base + DIV_CTL0);
+		writel_relaxed(tmp, pll->base + 4);
 
 		return 0;
 	}
 
 	/* Bypass clock and set lock to pll output lock */
-	tmp = readl_relaxed(pll->base + GNRL_CTL);
+	tmp = readl_relaxed(pll->base);
 	tmp |= LOCK_SEL_MASK;
-	writel_relaxed(tmp, pll->base + GNRL_CTL);
+	writel_relaxed(tmp, pll->base);
 
 	/* Enable RST */
 	tmp &= ~RST_MASK;
-	writel_relaxed(tmp, pll->base + GNRL_CTL);
+	writel_relaxed(tmp, pll->base);
 
 	/* Enable BYPASS */
 	tmp |= BYPASS_MASK;
-	writel(tmp, pll->base + GNRL_CTL);
+	writel(tmp, pll->base);
 
 	div_val = (rate->mdiv << MDIV_SHIFT) | (rate->pdiv << PDIV_SHIFT) |
 		(rate->sdiv << SDIV_SHIFT);
-	writel_relaxed(div_val, pll->base + DIV_CTL0);
+	writel_relaxed(div_val, pll->base + 0x4);
 
 	/*
 	 * According to SPEC, t3 - t2 need to be greater than
@@ -244,7 +243,7 @@ static int clk_pll1416x_set_rate(struct clk_hw *hw, unsigned long drate,
 
 	/* Disable RST */
 	tmp |= RST_MASK;
-	writel_relaxed(tmp, pll->base + GNRL_CTL);
+	writel_relaxed(tmp, pll->base);
 
 	/* Wait Lock */
 	ret = clk_pll14xx_wait_lock(pll);
@@ -253,7 +252,7 @@ static int clk_pll1416x_set_rate(struct clk_hw *hw, unsigned long drate,
 
 	/* Bypass */
 	tmp &= ~BYPASS_MASK;
-	writel_relaxed(tmp, pll->base + GNRL_CTL);
+	writel_relaxed(tmp, pll->base);
 
 	return 0;
 }
@@ -273,32 +272,32 @@ static int clk_pll1443x_set_rate(struct clk_hw *hw, unsigned long drate,
 		return -EINVAL;
 	}
 
-	tmp = readl_relaxed(pll->base + DIV_CTL0);
+	tmp = readl_relaxed(pll->base + 4);
 
 	if (!clk_pll14xx_mp_change(rate, tmp)) {
 		tmp &= ~(SDIV_MASK) << SDIV_SHIFT;
 		tmp |= rate->sdiv << SDIV_SHIFT;
-		writel_relaxed(tmp, pll->base + DIV_CTL0);
+		writel_relaxed(tmp, pll->base + 4);
 
 		tmp = rate->kdiv << KDIV_SHIFT;
-		writel_relaxed(tmp, pll->base + DIV_CTL1);
+		writel_relaxed(tmp, pll->base + 8);
 
 		return 0;
 	}
 
 	/* Enable RST */
-	tmp = readl_relaxed(pll->base + GNRL_CTL);
+	tmp = readl_relaxed(pll->base);
 	tmp &= ~RST_MASK;
-	writel_relaxed(tmp, pll->base + GNRL_CTL);
+	writel_relaxed(tmp, pll->base);
 
 	/* Enable BYPASS */
 	tmp |= BYPASS_MASK;
-	writel_relaxed(tmp, pll->base + GNRL_CTL);
+	writel_relaxed(tmp, pll->base);
 
 	div_val = (rate->mdiv << MDIV_SHIFT) | (rate->pdiv << PDIV_SHIFT) |
 		(rate->sdiv << SDIV_SHIFT);
-	writel_relaxed(div_val, pll->base + DIV_CTL0);
-	writel_relaxed(rate->kdiv << KDIV_SHIFT, pll->base + DIV_CTL1);
+	writel_relaxed(div_val, pll->base + 0x4);
+	writel_relaxed(rate->kdiv << KDIV_SHIFT, pll->base + 0x8);
 
 	/*
 	 * According to SPEC, t3 - t2 need to be greater than
@@ -310,7 +309,7 @@ static int clk_pll1443x_set_rate(struct clk_hw *hw, unsigned long drate,
 
 	/* Disable RST */
 	tmp |= RST_MASK;
-	writel_relaxed(tmp, pll->base + GNRL_CTL);
+	writel_relaxed(tmp, pll->base);
 
 	/* Wait Lock*/
 	ret = clk_pll14xx_wait_lock(pll);
@@ -319,7 +318,7 @@ static int clk_pll1443x_set_rate(struct clk_hw *hw, unsigned long drate,
 
 	/* Bypass */
 	tmp &= ~BYPASS_MASK;
-	writel_relaxed(tmp, pll->base + GNRL_CTL);
+	writel_relaxed(tmp, pll->base);
 
 	return 0;
 }
