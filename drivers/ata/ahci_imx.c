@@ -614,7 +614,6 @@ disable_per_clk1:
 disable_per_clk0:
 	clk_disable_unprepare(imxpriv->per_clk0);
 disable_phy_apbclk:
-	clk_disable_unprepare(imxpriv->phy_apbclk);
 disable_epcs_rx_clk:
 	clk_disable_unprepare(imxpriv->epcs_rx_clk);
 disable_epcs_tx_clk:
@@ -882,14 +881,12 @@ static int imx8_sata_enable(struct ahci_host_priv *hpriv)
 		 * To reduce the power consumption, gate off
 		 * the PHY clks
 		 */
-		clk_disable_unprepare(imxpriv->phy_apbclk);
 		clk_disable_unprepare(imxpriv->phy_pclk1);
 		clk_disable_unprepare(imxpriv->phy_pclk0);
 		return ret;
 	}
 
 err_out:
-	clk_disable_unprepare(imxpriv->phy_apbclk);
 	clk_disable_unprepare(imxpriv->phy_pclk1);
 	clk_disable_unprepare(imxpriv->phy_pclk0);
 	imx8_sata_clk_disable(imxpriv);
