@@ -1217,7 +1217,7 @@ static int imx6_pcie_deassert_core_reset(struct imx6_pcie *imx6_pcie)
 		/* wait for phy pll lock firstly. */
 		ret = imx8_pcie_wait_for_phy_pll_lock(imx6_pcie);
 		if (ret)
-			return ret;
+			goto err_vpcie;
 		break;
 	case IMX8MQ:
 	case IMX8MM:
@@ -1354,6 +1354,12 @@ static int imx6_pcie_deassert_core_reset(struct imx6_pcie *imx6_pcie)
 	}
 
 	return 0;
+
+err_vpcie:
+	if (imx6_pcie->vpcie)
+		regulator_disable(imx6_pcie->vpcie);
+
+	return ret;
 }
 
 static void imx6_pcie_configure_type(struct imx6_pcie *imx6_pcie)
