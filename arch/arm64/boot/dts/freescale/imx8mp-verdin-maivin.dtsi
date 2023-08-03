@@ -1,0 +1,289 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/*
+ * Copyright 2022 Toradex
+ */
+
+/ {
+	reg_eth2phy: regulator-eth2phy {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpio = <&gpio_expander_21 4 GPIO_ACTIVE_HIGH>; /* ETH_PWR_EN */
+		off-on-delay = <500000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-min-microvolt = <3300000>;
+		regulator-name = "+V3.3_ETH";
+		startup-delay-us = <200000>;
+		vin-supply = <&reg_3p3v>;
+	};
+
+	csi_3v3: regulator-csi-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "CSI_3V3";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_csi_3v3>;
+		gpio = <&gpio3 7 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <50000>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	m2_3v3: regulator-m2-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "M2_3V3";
+		regulator-max-microvolt = <3300000>;
+		regulator-min-microvolt = <3300000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_m2>;
+		gpio = <&gpio3 1 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	/* Carrier Board Supply 3V3_SW */
+	reg_3v3: regulator-3v3-sw {
+		compatible = "regulator-fixed";
+		regulator-max-microvolt = <3300000>;
+		regulator-min-microvolt = <3300000>;
+		regulator-name = "3V3_SW";
+	};
+};
+
+/* Verdin SPI_1 */
+&ecspi1 {
+	status = "okay";
+};
+
+/* EEPROM on Verdin Development board */
+&eeprom_carrier_board {
+	status = "okay";
+};
+
+&eqos {
+	status = "okay";
+};
+
+&fec {
+	phy-supply = <&reg_eth2phy>;
+	status = "okay";
+};
+
+&flexcan1 {
+	status = "okay";
+};
+
+&flexcan2 {
+	status = "okay";
+};
+
+&flexspi {
+	status = "disabled";
+};
+
+&gpio_expander_21 {
+	status = "okay";
+	vcc-supply = <&reg_1p8v>;
+};
+
+/* Current measurement into module VCC */
+&hwmon {
+	status = "okay";
+};
+
+&hwmon_temp {
+	vs-supply = <&reg_1p8v>;
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+/* Verdin I2C_2_DSI */
+&i2c2 {
+	status = "okay";
+
+	clock-frequency = <400000>;
+	scl-gpios = <&gpio5 16 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio5 17 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+
+	dac@d {
+		compatible = "ti,dac081c081", "ti,dac5571";
+		reg = <0x0d>;
+		vref-supply = <&csi_3v3>;
+	};
+};
+
+/* Verdin I2C_4_CSI */
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	dac@d {
+		compatible = "ti,dac081c081", "ti,dac5571";
+		reg = <0x0d>;
+		vref-supply = <&csi_3v3>;
+	};
+};
+
+/* Verdin I2C_1 */
+&i2c4 {
+	status = "okay";
+
+	/* To be compatible with old versions of the board */
+	temp-sensor@4a {
+		compatible = "ti,tmp102","tmp102";
+		reg = <0x4a>;
+	};
+
+	temp-sensor@4b {
+		compatible = "ti,tmp102", "tmp102";
+		reg = <0x4b>;
+	};
+
+	eeprom@54 {
+		compatible = "st,24c02";
+		pagesize = <16>;
+		reg = <0x54>;
+	};
+
+	gpio@70 {
+		compatible = "nxp,pca9538";
+		reg = <0x70>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-line-names =
+			"IMU_RST",
+			"IMU_BOOT",
+			"IMU_INT",
+			"TIMEPULSE",
+			"",
+			"",
+			"",
+			"GPS_RST";
+		status = "okay";
+	};
+};
+
+/* Verdin PCIE_1 */
+&pcie {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_m2>;
+	reset-gpio = <&gpio3 9 GPIO_ACTIVE_LOW>;	/* /M2_RST (SODIMM 62) */
+	disable-gpio = <&gpio3 6 GPIO_ACTIVE_LOW>;	/* CARD_DISABLE (SODIMM 56) */
+	epdev_on-supply = <&reg_3p3v>;
+	ext_osc = <0>;
+};
+
+&pcie_phy {
+	status = "disabled";
+	ext_osc = <0>;
+};
+
+/* Verdin PWM_1 */
+&pwm1 {
+	status = "okay";
+};
+
+/* Verdin PWM_2 */
+&pwm2 {
+	status = "okay";
+};
+
+/* Verdin PWM_3_DSI */
+&pwm3 {
+	status = "okay";
+};
+
+&reg_usdhc2_vmmc {
+	vin-supply = <&reg_3p3v>;
+};
+
+/* VERDIN I2S_1 */
+&sai1 {
+	#sound-dai-cells = <0>;
+	assigned-clocks = <&clk IMX8MP_CLK_SAI1>;
+	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <24576000>;
+	fsl,sai-mclk-direction-output;
+	status = "okay";
+};
+
+&sdma2 {
+	status = "okay";
+};
+
+/* Verdin UART_1, connector X50 through RS485 transceiver */
+&uart1 {
+	fsl,uart-has-rtscts;
+	linux,rs485-enabled-at-boot-time;
+	rs485-rts-active-low;
+	rs485-rx-during-tx;
+	status = "okay";
+};
+
+/* Verdin UART_2 */
+&uart2 {
+	status = "okay";
+};
+
+/* Verdin UART_3, used as the Linux Console */
+&uart3 {
+	status = "okay";
+};
+
+/* Maivin Internal UART (also used by Bluetooth with alternate pins) */
+&uart4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart4>;
+	status = "okay";
+	/delete-property/ uart-has-rtscts;
+	/delete-node/ bluetooth;
+};
+
+/* Verdin USB_1 */
+&usb3_0 {
+	status = "okay";
+};
+
+&usb3_phy0 {
+	status = "okay";
+};
+
+/* Verdin USB_2 */
+&usb3_1 {
+	fsl,permanently-attached;
+	status = "okay";
+};
+
+&usb3_phy1 {
+	status = "okay";
+};
+
+/* Limit frequency on dev board due to long traces and bad signal integrity */
+&usdhc2 {
+	max-frequency = <100000000>;
+	status = "okay";
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_watchdog>;
+
+	pinctrl_watchdog: watchdog {
+		fsl,pins =
+			<MX8MP_IOMUXC_NAND_ALE__GPIO3_IO00		0x82>;	/* SODIMM 52 - WDI */
+	};
+
+	pinctrl_m2: m2 {
+		fsl,pins =
+			<MX8MP_IOMUXC_NAND_CE0_B__GPIO3_IO01		0x82>,  /* SODIMM 54 - M2_PWR_EN */
+			<MX8MP_IOMUXC_NAND_DATA00__GPIO3_IO06		0x82>,	/* SODIMM 56 - CARD_PWR_OFF */
+			<MX8MP_IOMUXC_NAND_DATA03__GPIO3_IO09		0x82>;	/* SODIMM 62 - M2_RST */
+	};
+
+	pinctrl_csi_3v3: csi_3v3 {
+		fsl,pins =
+			<MX8MP_IOMUXC_NAND_DATA01__GPIO3_IO07		0x184>;	/* SODIMM 58 - CSI_EN */
+	};
+};
