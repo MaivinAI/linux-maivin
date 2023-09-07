@@ -36,7 +36,6 @@
 		pinctrl-0 = <&pinctrl_m2>;
 		gpio = <&gpio3 1 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		regulator-always-on;
 	};
 
 	/* Carrier Board Supply 3V3_SW */
